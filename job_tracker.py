@@ -4,7 +4,7 @@ from flask_login import LoginManager, login_required, login_user, logout_user
 import pandas as pd
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:1malirudolf@localhost/app1"
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ["DATABASE_URL"] # "postgresql://postgres:1malirudolf@localhost/app1"
 app.config["SECRET_KEY"] = "ITSASECRET"
 db = SQLAlchemy(app)
 login_manager = LoginManager()
