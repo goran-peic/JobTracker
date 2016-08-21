@@ -2,6 +2,7 @@ from flask import Flask, flash, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_required, login_user, logout_user
 import pandas as pd
+import os
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ["DATABASE_URL"] # "postgresql://postgres:1malirudolf@localhost/app1"
