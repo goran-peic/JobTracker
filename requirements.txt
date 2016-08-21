@@ -1,4 +1,3 @@
-os
 gunicorn
 flask
 flask_sqlalchemy

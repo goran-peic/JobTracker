@@ -2,10 +2,11 @@ from flask import Flask, flash, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_required, login_user, logout_user
 import pandas as pd
-import os
+
+# "postgresql://postgres:1malirudolf@localhost/app1"
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ["DATABASE_URL"] # "postgresql://postgres:1malirudolf@localhost/app1"
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgres://mfsqowwrzxhlra:Wga1CdXQFUWqGp_P567WYQ9SaF@ec2-54-243-249-137.compute-1.amazonaws.com:5432/db14sddu9ssmtn"
 app.config["SECRET_KEY"] = "ITSASECRET"
 db = SQLAlchemy(app)
 login_manager = LoginManager()
