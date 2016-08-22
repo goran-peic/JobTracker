@@ -59,41 +59,7 @@
       <div class="row">
         <div class="col-md-6">
           <div class="container">
-          <h2>Submitted</h2>
-          </div>
-          <table class="table table-striped">
-            <thead>
-              <tr>
-                {% for colName in colNames %}
-                <th> {{ colName }} </th>
-                {% endfor %}
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in range(dfJobsSub.index|length) %}
-              <tr> {% for val in dfJobsSub.ix[row, colNames2] %} <td> {{ val }} </td> {% endfor %}
-                <td><form method="post" action={{ url_for("redir", link=dfJobsSub.ix[row, "Link to Ad"]) }}>
-                  <a href="{{ dfJobsSub.ix[row, "Link to Ad"] }}" type="submit" target="_blank" name="link">Ad</a>
-                  </form>
-                </td>
-
-                <td><form method="post" action={{ url_for("redir", link=dfJobsSub.ix[row, "Link to Job"]) }}>
-                  <a href="{{ dfJobsSub.ix[row, "Link to Job"] }}" type="submit" target="blank" name="link">Job</a>
-                  </form>
-                </td>
-
-                <td><form method="post" action={{ url_for("delete_job", id=dfJobsSub.ix[row, "Job ID"]) }}>
-                  <button class="btn btn-sm btn-danger-outline" value="{{ dfJobsSub.ix[row, "Job ID"] }}" type="submit" name="delete">Delete</button>
-                  </form>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        <div class="col-md-6">
-          <div class="container">
-            <h2>Unsubmitted</h2>
+          <h2>Unsubmitted</h2>
           </div>
           <table class="table table-striped">
             <thead>
@@ -107,15 +73,49 @@
               {% for row in range(dfJobsUnsub.index|length) %}
               <tr> {% for val in dfJobsUnsub.ix[row, colNames2] %} <td> {{ val }} </td> {% endfor %}
                 <td><form method="post" action={{ url_for("redir", link=dfJobsUnsub.ix[row, "Link to Ad"]) }}>
-                  <a href="{{ dfJobsUnsub.ix[row, "Link to Ad"] }}" type="submit" target="_blank" name="link">Ad</button>
+                  <a href="{{ dfJobsUnsub.ix[row, "Link to Ad"] }}" type="submit" target="_blank" name="link">Ad</a>
                   </form>
                 </td>
+
                 <td><form method="post" action={{ url_for("redir", link=dfJobsUnsub.ix[row, "Link to Job"]) }}>
-                  <a href="{{ dfJobsUnsub.ix[row, "Link to Job"] }}" type="submit" target="_blank" name="link">Job</button>
+                  <a href="{{ dfJobsUnsub.ix[row, "Link to Job"] }}" type="submit" target="blank" name="link">Job</a>
                   </form>
                 </td>
+
                 <td><form method="post" action={{ url_for("complete_job", id=dfJobsUnsub.ix[row, "Job ID"]) }}>
-                  <button type="submit" class="btn btn-outline-success btn-sm" value="{{ dfJobsUnsub.ix[row, "Job ID"] }}" name="complete">Complete</button>
+                  <button class="btn btn-sm btn-danger-outline" value="{{ dfJobsUnsub.ix[row, "Job ID"] }}" type="submit" name="complete">Complete</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="col-md-6">
+          <div class="container">
+            <h2>Submitted</h2>
+          </div>
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                {% for colName in colNames %}
+                <th> {{ colName }} </th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in range(dfJobsSub.index|length) %}
+              <tr> {% for val in dfJobsSub.ix[row, colNames2] %} <td> {{ val }} </td> {% endfor %}
+                <td><form method="post" action={{ url_for("redir", link=dfJobsSub.ix[row, "Link to Ad"]) }}>
+                  <a href="{{ dfJobsSub.ix[row, "Link to Ad"] }}" type="submit" target="_blank" name="link">Ad</button>
+                  </form>
+                </td>
+                <td><form method="post" action={{ url_for("redir", link=dfJobsSub.ix[row, "Link to Job"]) }}>
+                  <a href="{{ dfJobsSub.ix[row, "Link to Job"] }}" type="submit" target="_blank" name="link">Job</button>
+                  </form>
+                </td>
+                <td><form method="post" action={{ url_for("delete_job", id=dfJobsSub.ix[row, "Job ID"]) }}>
+                  <button type="submit" class="btn btn-outline-success btn-sm" value="{{ dfJobsSub.ix[row, "Job ID"] }}" name="delete">Delete</button>
                   </form>
                 </td>
               </tr>
@@ -125,11 +125,7 @@
         </div>
       </div>
 
-<div class="row">
- <div class="col-md-6">
- </div>
 
- <div class="col-md-6">
 
      <h3>Add Application</h3>
      <button type="button" class="btn btn-success" data-toggle="modal" data-target="#popUpWindow">Open Form</button>
@@ -178,8 +174,7 @@
       </div>
      </div>
 
-   </div>
-</div>
+
   </div> <!-- /container -->
 
 
