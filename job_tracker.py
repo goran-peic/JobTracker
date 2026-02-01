@@ -1,172 +1,224 @@
 from flask import Flask, flash, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, login_required, login_user, logout_user
+from flask_login import LoginManager, login_required, login_user, logout_user, UserMixin, current_user
 import pandas as pd
+import os
+from werkzeug.security import generate_password_hash, check_password_hash
+from dotenv import load_dotenv
 
-# "postgresql://postgres:1malirudolf@localhost/app1"
+load_dotenv()
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = "postgres://mfsqowwrzxhlra:Wga1CdXQFUWqGp_P567WYQ9SaF@ec2-54-243-249-137.compute-1.amazonaws.com:5432/db14sddu9ssmtn"
-app.config["SECRET_KEY"] = "ITSASECRET"
+
+# Use environment variables for configuration
+# Default to SQLite for local development if DATABASE_URL is not set
+database_url = os.environ.get("DATABASE_URL", "sqlite:///jobtracker.db")
+
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-key-please-change")
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
 db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
 
-class User(db.Model):
+class User(UserMixin, db.Model):
+    __tablename__ = "users"
 
-  __tablename__ = "users"
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
 
-  id = db.Column(db.Integer, primary_key=True)
-  username = db.Column(db.String(80), unique=True)
-  password = db.Column(db.String(120), unique=False)
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
 
-  def __init__(self, username, password):
-    self.username = username
-    self.password = password
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
-  def is_active(self):
-    return True
-
-  def get_id(self):
-    return self.id
-
-  def is_authenticated(self):
-    return self.authenticated
-
-  def is_anonymous(self):
-    return False
-
-  def __repr__(self):
-    return self.username
+    def __repr__(self):
+        return self.username
 
 class Job(db.Model):
-  id = db.Column(db.Integer, primary_key=True)
-  username = db.Column(db.String(80), db.ForeignKey("users.username"))
-  company_name = db.Column(db.String(100), unique=False)
-  position_name = db.Column(db.String(100), unique=False)
-  requirements = db.Column(db.String(300), unique=False)
-  link_to_ad = db.Column(db.String(300), unique=False)
-  link_to_job = db.Column(db.String(300), unique=False)
-  submitted = db.Column(db.Boolean, unique=False)
+    __tablename__ = "jobs"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), db.ForeignKey("users.username"), nullable=False)
+    company_name = db.Column(db.String(100), nullable=False)
+    position_name = db.Column(db.String(100), nullable=False)
+    requirements = db.Column(db.String(300))
+    link_to_ad = db.Column(db.String(300))
+    link_to_job = db.Column(db.String(300))
+    submitted = db.Column(db.Boolean, default=False)
 
-  user = db.relationship("User", lazy="select", backref="jobs")
+    user = db.relationship("User", backref=db.backref("jobs", lazy=True))
 
-  def __init__(self, username, company_name, position_name, requirements, link_to_ad, link_to_job, submitted):
-    self.username = username
-    self.company_name = company_name
-    self.position_name = position_name
-    self.requirements = requirements
-    self.link_to_ad = link_to_ad
-    self.link_to_job = link_to_job
-    self.submitted = submitted
+    def __init__(self, username, company_name, position_name, requirements, link_to_ad, link_to_job, submitted=False):
+        self.username = username
+        self.company_name = company_name
+        self.position_name = position_name
+        self.requirements = requirements
+        self.link_to_ad = link_to_ad
+        self.link_to_job = link_to_job
+        self.submitted = submitted
 
-  def __repr__(self):
-    return "%s %s, %s, %s, %s, %s, %s>" % (self.username, self.company_name, self.position_name,
-                                          self.requirements, self.link_to_ad, self.link_to_job, self.submitted)
+    def __repr__(self):
+        return f"<{self.username} {self.company_name}, {self.position_name}>"
 
 @login_manager.user_loader
-def load_user(id):
-  return User.query.get(int(id))
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
-  if request.method == "GET":
-    return render_template("register.html")
-  user = User(request.form["username"], request.form["password"])
-  allUsers = []
-  for u in User.query.all(): allUsers.append(str(u))
-  uname = request.form["username"]
-  print(allUsers)
-  if not uname in allUsers:
+    if request.method == "GET":
+        return render_template("register.html")
+    
+    username = request.form["username"]
+    password = request.form["password"]
+    
+    if User.query.filter_by(username=username).first():
+        flash("That username already exists! Please log in.")
+        return redirect(url_for("login"))
+    
+    user = User(username=username)
+    user.set_password(password)
     db.session.add(user)
     db.session.commit()
-  else: flash("That username already exists! Please log in.")
-  return redirect(url_for("login"))
+    
+    return redirect(url_for("login"))
 
-@app.route("/login", methods=["GET","POST"])
+@app.route("/login", methods=["GET", "POST"])
 def login():
-  if request.method == "GET":
-    return render_template("login.html")
-  username = request.form["username"]
-  password = request.form["password"]
-  registered_user = User.query.filter_by(username=username, password=password).first()
-  if registered_user is None:
-    registered_user2 = User.query.filter_by(username=username).first()
-    if registered_user2 is None:
-      flash("This account is non-existent. Please register.")
-      return redirect(url_for("register"))
-    else:
-      flash("Incorrect password. Please try again.")
-      return redirect(url_for("login"))
-  login_user(registered_user)
-  return redirect(url_for("list_jobs", name=request.form["username"]))
+    if request.method == "GET":
+        return render_template("login.html")
+        
+    username = request.form["username"]
+    password = request.form["password"]
+    
+    user = User.query.filter_by(username=username).first()
+    
+    if user is None or not user.check_password(password):
+        flash("Invalid username or password")
+        return redirect(url_for("login"))
+        
+    login_user(user)
+    return redirect(url_for("list_jobs", name=username))
 
 @app.route("/logout")
+@login_required
 def logout():
-  logout_user()
-  return redirect(url_for("index"))
+    logout_user()
+    return redirect(url_for("index"))
 
 @app.route("/", methods=["GET"])
 def index():
-  return render_template("index.html")
+    return render_template("index.html")
 
 @app.route("/list_jobs/<name>", methods=["GET"])
 @login_required
 def list_jobs(name):
-  allJobs = Job.query.filter_by(username=name)
-  data_records = [rec.__dict__ for rec in allJobs]
-  dfJobs = pd.DataFrame.from_records(data_records)
-  colNames = ["ID", "Employer", "Position", "Notes"]
-  colNames2 = ["Job ID", "Company", "Position", "Requirements"]
-  if not dfJobs.empty:
-    del dfJobs["_sa_instance_state"]; print(dfJobs)
-    for i in range(len(dfJobs.index)):
-      if dfJobs.ix[i, "link_to_ad"][0:3] != "htt": dfJobs.ix[i, "link_to_ad"] = "http://" + dfJobs.ix[i, "link_to_ad"]
-      if dfJobs.ix[i, "link_to_job"][0:3] != "htt": dfJobs.ix[i, "link_to_job"] = "http://" + dfJobs.ix[i, "link_to_job"]
-    dfJobs.columns = ["Company", "Job ID", "Link to Ad", "Link to Job", "Position", "Requirements", "Submitted", "Username"]
-    dfJobsSub = dfJobs.ix[dfJobs.Submitted == True, ["Job ID", "Company", "Position", "Requirements", "Link to Ad", "Link to Job"]].reset_index(drop=True)
-    dfJobsUnsub = dfJobs.ix[dfJobs.Submitted == False, ["Job ID", "Company", "Position", "Requirements", "Link to Ad", "Link to Job"]].reset_index(drop=True)
-  else: dfJobsSub = dfJobsUnsub = None
-  return render_template("list_jobs.html", name=name, dfJobsSub=dfJobsSub, dfJobsUnsub=dfJobsUnsub, colNames=colNames, colNames2=colNames2)
+    if name != current_user.username:
+        # Prevent users from viewing other users' jobs
+        flash("You are not authorized to view this page.")
+        return redirect(url_for("list_jobs", name=current_user.username))
+
+    jobs = Job.query.filter_by(username=name).all()
+    
+    # Convert to list of dicts for DataFrame
+    data_records = []
+    for job in jobs:
+        data_records.append({
+            "Job ID": job.id,
+            "Company": job.company_name,
+            "Position": job.position_name,
+            "Requirements": job.requirements,
+            "Link to Ad": job.link_to_ad,
+            "Link to Job": job.link_to_job,
+            "Submitted": job.submitted,
+            "Username": job.username
+        })
+
+    dfJobs = pd.DataFrame(data_records)
+    
+    colNames = ["ID", "Employer", "Position", "Notes"]
+    colNames2 = ["Job ID", "Company", "Position", "Requirements"]
+    
+    dfJobsSub = None
+    dfJobsUnsub = None
+
+    if not dfJobs.empty:
+        # Fix links
+        for i in dfJobs.index:
+            if dfJobs.loc[i, "Link to Ad"] and not dfJobs.loc[i, "Link to Ad"].startswith("http"):
+                dfJobs.loc[i, "Link to Ad"] = "https://" + dfJobs.loc[i, "Link to Ad"]
+            if dfJobs.loc[i, "Link to Job"] and not dfJobs.loc[i, "Link to Job"].startswith("http"):
+                dfJobs.loc[i, "Link to Job"] = "https://" + dfJobs.loc[i, "Link to Job"]
+        
+        # Filter submitted vs unsubmitted
+        dfJobsSub = dfJobs.loc[dfJobs["Submitted"] == True, ["Job ID", "Company", "Position", "Requirements", "Link to Ad", "Link to Job"]].reset_index(drop=True)
+        dfJobsUnsub = dfJobs.loc[dfJobs["Submitted"] == False, ["Job ID", "Company", "Position", "Requirements", "Link to Ad", "Link to Job"]].reset_index(drop=True)
+
+    return render_template("list_jobs.html", name=name, dfJobsSub=dfJobsSub, dfJobsUnsub=dfJobsUnsub, colNames=colNames, colNames2=colNames2)
 
 @app.route("/post_job/<name>", methods=["POST"])
 @login_required
 def post_job(name):
-  job = Job(name, request.form["company_name"], request.form["position_name"],
-            request.form["requirements"], request.form["link_to_ad"], request.form["link_to_job"], False)
-  db.session.add(job)
-  db.session.commit()
-  return redirect(url_for("list_jobs", name=name))
+    if name != current_user.username:
+        return redirect(url_for("list_jobs", name=current_user.username))
+
+    job = Job(
+        username=name,
+        company_name=request.form["company_name"],
+        position_name=request.form["position_name"],
+        requirements=request.form["requirements"],
+        link_to_ad=request.form["link_to_ad"],
+        link_to_job=request.form["link_to_job"],
+        submitted=False
+    )
+    db.session.add(job)
+    db.session.commit()
+    return redirect(url_for("list_jobs", name=name))
 
 @app.route("/delete_job/<int:id>", methods=["POST"])
 @login_required
 def delete_job(id):
-  print(id)
-  user = pd.DataFrame.from_records([rec.__dict__ for rec in Job.query.filter_by(id=id).all()])
-  username = user["username"].astype("str")[0]
-  deljob = Job.query.get(int(request.form["delete"]))
-  db.session.delete(deljob)
-  db.session.commit()
-  return redirect(url_for("list_jobs", name=username))
+    job_to_delete = Job.query.get_or_404(int(request.form["delete"]))
+    
+    if job_to_delete.username != current_user.username:
+        flash("You cannot delete this job.")
+        return redirect(url_for("list_jobs", name=current_user.username))
+    
+    username = job_to_delete.username
+    db.session.delete(job_to_delete)
+    db.session.commit()
+    return redirect(url_for("list_jobs", name=username))
 
 @app.route("/complete_job/<int:id>", methods=["POST"])
 @login_required
 def complete_job(id):
-  user = pd.DataFrame.from_records([rec.__dict__ for rec in Job.query.filter_by(id=id).all()])
-  username = user["username"].astype("str")[0]
-  completeJob = Job.query.get(int(request.form["complete"]))
-  completeJob.submitted = True
-  db.session.commit()
-  return redirect(url_for("list_jobs", name=username))
+    job_to_complete = Job.query.get_or_404(int(request.form["complete"]))
+    
+    if job_to_complete.username != current_user.username:
+        flash("You cannot update this job.")
+        return redirect(url_for("list_jobs", name=current_user.username))
+
+    username = job_to_complete.username
+    job_to_complete.submitted = True
+    db.session.commit()
+    return redirect(url_for("list_jobs", name=username))
 
 @app.route("/redir", methods=["GET", "POST"])
 def redir():
-  link = "http://" + request.form["link"]
-  print(link)
-  actual_link = "5;URL=" + link
-  return render_template("redir.html", **locals())
+    link = request.form.get("link", "")
+    if link and not link.startswith("http"):
+        link = "https://" + link
+    return render_template("redir.html", link=link)
 
 if __name__ == "__main__":
-  db.create_all()
-  app.run(debug=True)
+    with app.app_context():
+        db.create_all()
+    app.run(debug=True)
